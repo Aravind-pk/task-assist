@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import { SidebarProvider } from "./SidebarProvider";
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Congratulations, your extension "task-assist" is now active!');
 
   const sidebarProvider = new SidebarProvider(context.extensionUri);
 

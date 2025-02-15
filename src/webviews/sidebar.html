@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Inject CSP and theme variables -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="img-src https: data:; style-src 'unsafe-inline' {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="{{styleResetUri}}" rel="stylesheet" />
+    <link href="{{styleVSCodeUri}}" rel="stylesheet" />
+    <title>Code Planner</title>
+
+    <script nonce="{{nonce}}">
+      const tsvscode = acquireVsCodeApi();
+
+      // Add event listener properly
+      window.addEventListener("DOMContentLoaded", (event) => {
+        document
+          .getElementById("generateButton")
+          .addEventListener("click", generatePlan);
+      });
+
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+        if (message.type === "showAnalysingPlan") {
+          updatePlanContent(message.value);
+        }
+      });
+
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+        if (message.type === "showPlanSpecification") {
+          updatePlanSpecification(message.value);
+        }
+        document.getElementById("loader").hidden = true;
+      });
+
+      function generatePlan() {
+        console.log("Generating plan...");
+        document.getElementById("planContainer").innerHTML = "";
+        document.getElementById("planSpecificationContainer").innerHTML = "";
+        const input = document.getElementById("planInput").value;
+        tsvscode.postMessage({
+          type: "generatePlan",
+          value: input,
+        });
+        document.getElementById("loader").hidden = false;
+      }
+
+      function updatePlanContent(plan) {
+
+        const heading = document.createElement("h4");
+        heading.textContent = plan.description;
+        container.appendChild(heading);
+
+        const chipsContainer = document.createElement("div");
+
+        // For each file, create a chip element.
+        plan.files.forEach((file) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = file;
+          chipsContainer.appendChild(chip);
+        });
+
+        container.appendChild(chipsContainer);
+      }
+
+      function updatePlanSpecification(steps) {
+        const container = document.getElementById("planSpecificationContainer");
+        container.innerHTML = "";
+
+        steps.forEach((step) => {
+          const details = document.createElement("details");
+
+          const summary = document.createElement("summary");
+          summary.textContent = step.stepName;
+          details.appendChild(summary);
+
+          const descriptionPara = document.createElement("p");
+          descriptionPara.textContent = step.description;
+          details.appendChild(descriptionPara);
+
+          container.appendChild(details);
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Code Planner</h2>
+      <input
+        type="text"
+        id="planInput"
+        placeholder="Describe your coding plan..."
+      />
+      <button id="generateButton">Create Plan</button>
+      <div id="result"></div>
+    </div>
+
+    <!-- Load external JS file with the proper nonce -->
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+
+    <div id="planContainer"></div>
+    <div id="planSpecificationContainer"></div>
+    <div id="loader" hidden>Loading..</div>
+  </body>
+</html>

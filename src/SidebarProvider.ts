@@ -1,8 +1,11 @@
 import * as vscode from "vscode";
 import { getNonce } from "./getNonce";
-import axios from "axios";
-import ignore from "ignore";
-
+import * as fs from "fs";
+import * as path from "path";
+import { renderTemplate } from "./utils/templaterender";
+import { getOpenRouterOutput } from "./utils/llm";
+import { getFileContent, getWorkspaceStructure } from "./utils/workspace";
+import { analyzeFilesPrompt, planSpesificationPrompt } from "./prompts/tasks";
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   _view?: vscode.WebviewView;
@@ -31,7 +34,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           }
 
           try {
-            const workspaceContent = await this.getWorkspaceStructure();
+            const workspaceContent = await getWorkspaceStructure();
             const config = vscode.workspace.getConfiguration("codePlanner");
             const apiKey = config.get<string>("openRouterApiKey");
 
@@ -42,40 +45,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
               return;
             }
 
-            console.log(workspaceContent)
+            const requieredFiles = await this.getLLMResponse ( analyzeFilesPrompt(userPrompt, workspaceContent));
 
-            const response = await axios.post(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                model: "deepseek/deepseek-r1-distill-llama-70b:free",
-                messages: [
-                  {
-                    role: "user",
-                    content: `Create a code plan based on: ${userPrompt}. 
-                               Current workspace structure: ${workspaceContent}.
-                               Only respond with html list of tasks, and nothing else.`,
-                  },
-                ],
-                temperature: 0.7,
-                max_tokens: 1000,
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${apiKey}`,
-                  "HTTP-Referer": "https://your-extension-repo.com", // Update with your extension's URL
-                  "X-Title": "Task Assist Extension",
-                  "Content-Type": "application/json",
-                },
-              }
-            );
 
-            console.log(response.data);
-
-            const plan = response.data.choices[0].message.content;
             this._view?.webview.postMessage({
-              type: "showPlan",
-              value: plan,
+              type: "showAnalysingPlan",
+              value: requieredFiles,
             });
+
+            //get content of files
+            const files = await getFileContent(requieredFiles.files);
+
+            const planSpecification = await this.getLLMResponse ( planSpesificationPrompt(userPrompt, files.toString()));
+
+            this._view?.webview.postMessage({
+              type: "showPlanSpecification",
+              value: planSpecification.steps,
+            });
+
           } catch (error) {
             console.error(error);
             vscode.window.showErrorMessage(`Error generating plan: ${error}`);
@@ -86,48 +73,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private async getWorkspaceStructure(): Promise<string> {
-    // Define a glob for relevant file extensions.
-    const globPattern = "**/*.{js,ts,jsx,tsx,json,css,html}";
-  
-    // Exclude common folders.
-    const excludeGlob = "**/{node_modules,.git,dist,build}/**";
-  
-    // Get all matching files from the workspace.
-    const files = await vscode.workspace.findFiles(globPattern, excludeGlob);
-  
-    // Attempt to load .gitignore patterns.
-    let gitignorePatterns: string[] = [];
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (workspaceFolders && workspaceFolders.length > 0) {
-      const gitignoreUri = vscode.Uri.joinPath(workspaceFolders[0].uri, ".gitignore");
-      try {
-        const gitignoreContent = await vscode.workspace.fs.readFile(gitignoreUri);
-        // Convert Uint8Array to string and split into lines.
-        const gitignoreString = Buffer.from(gitignoreContent).toString("utf8");
-        gitignorePatterns = gitignoreString
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line && !line.startsWith("#"));
-      } catch (error) {
-        // If .gitignore doesn't exist or cannot be read, ignore it.
-      }
-    }
-  
-    // Create an ignore filter using the parsed patterns.
-    const ig = ignore().add(gitignorePatterns);
-  
-    // Filter out files that match any .gitignore patterns.
-    const filteredFiles = files.filter((file) => {
-      const relativePath = vscode.workspace.asRelativePath(file);
-      return !ig.ignores(relativePath);
-    });
-  
-    // Return the filtered file list as a newline-separated string.
-    return filteredFiles.map((f) => vscode.workspace.asRelativePath(f)).join("\n");
-  }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
+
     const styleResetUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "media", "reset.css")
     );
@@ -135,56 +83,42 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "media", "vscode.css")
     );
 
-    const nonce = getNonce();
+    const htmlPath = path.join(this._extensionUri.fsPath, "src/webviews", "sidebar.html");
+    let html = fs.readFileSync(htmlPath, "utf8");
 
-    return `<!DOCTYPE html>
-      <html lang="en">
-        <head>
-                             <meta charset="UTF-8">
-                    <!--
-                        Use a content security policy to only allow loading images from https or from our extension directory,
-                        and only allow scripts that have a specific nonce.
-                    -->
-                    <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <link href="${styleResetUri}" rel="stylesheet">
-                    <link href="${styleVSCodeUri}" rel="stylesheet">
-          <script nonce="${nonce}">
-            const tsvscode = acquireVsCodeApi();
-            
-            window.addEventListener('message', event => {
-              if (event.data.type === 'showPlan') {
-                document.getElementById('result').innerHTML = event.data.value;
-              }
-            });
+    // Define all the variables you need to inject.
+    const variables = {
+      cspSource: webview.cspSource,
+      nonce: getNonce(),
+      styleResetUri,
+      styleVSCodeUri,
+    };
 
-            // Add event listener properly
-            window.addEventListener('DOMContentLoaded', (event) => {
-              document.getElementById('generateButton').addEventListener('click', generatePlan);
-            });
-
-            function generatePlan() {
-              const input = document.getElementById('planInput').value;
-              tsvscode.postMessage({
-                type: 'generatePlan',
-                value: input
-              });
-            }
-          </script>
-
-        </head>
-        <body>
-          <div class="container">
-            <h2>Code Planner</h2>
-            <input type="text" id="planInput" placeholder="Describe your coding plan...">
-            <button id="generateButton">Create Plan</button>
-            <div id="result"></div>
-          </div>
-        </body>
-      </html>`;
+    return renderTemplate(html, variables);
   }
 
   public revive(panel: vscode.WebviewView) {
     this._view = panel;
   }
+
+  private async getLLMResponse(prompt: string){
+    const config = vscode.workspace.getConfiguration("codePlanner");
+    const apiKey = config.get<string>("openRouterApiKey");
+
+    if (!apiKey) {
+      vscode.window.showErrorMessage(
+        "OpenRouter API key not found. Please set it in extension settings."
+      );
+      return;
+    }
+
+    try {
+      const response = await getOpenRouterOutput(prompt, apiKey);
+      return response;
+    }catch(e){
+      throw new Error(`Cant get LLM response`);
+    }
+
+  }
+
 }

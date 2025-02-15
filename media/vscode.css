@@ -1,58 +1,62 @@
 :root {
-  --container-paddding: 20px;
-  --input-padding-vertical: 6px;
-  --input-padding-horizontal: 4px;
-  --input-margin-vertical: 4px;
-  --input-margin-horizontal: 0;
+  --container-padding: 20px;
+  --input-padding-vertical: 8px;
+  --input-padding-horizontal: 10px;
+  --input-margin-vertical: 8px;
+  --border-radius: 6px;
+  --transition-duration: 0.3s;
+  --chip-bg: var(--vscode-button-background);
+  --chip-color: var(--vscode-button-foreground);
+  --chip-padding: 4px 8px;
+  --chip-border-radius: 12px;
 }
 
 body {
-  padding: 0 var(--container-paddding);
+  padding: 0 var(--container-padding);
   color: var(--vscode-foreground);
   font-size: var(--vscode-font-size);
-  font-weight: var(--vscode-font-weight);
   font-family: var(--vscode-font-family);
   background-color: var(--vscode-editor-background);
 }
 
-ol,
-ul {
-  padding-left: var(--container-paddding);
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
 }
 
-body > *,
-form > * {
-  margin-block-start: var(--input-margin-vertical);
-  margin-block-end: var(--input-margin-vertical);
+h2 {
+  margin-bottom: var(--input-margin-vertical);
 }
 
-*:focus {
-  outline-color: var(--vscode-focusBorder) !important;
+input:not([type="checkbox"]),
+textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--vscode-input-border);
+  border-radius: var(--border-radius);
+  font-family: var(--vscode-font-family);
+  padding: var(--input-padding-vertical) var(--input-padding-horizontal);
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
 }
 
-a {
-  color: var(--vscode-textLink-foreground);
-}
-
-a:hover,
-a:active {
-  color: var(--vscode-textLink-activeForeground);
-}
-
-code {
-  font-size: var(--vscode-editor-font-size);
-  font-family: var(--vscode-editor-font-family);
+input::placeholder,
+textarea::placeholder {
+  color: var(--vscode-input-placeholderForeground);
 }
 
 button {
   border: none;
+  border-radius: var(--border-radius);
   padding: var(--input-padding-vertical) var(--input-padding-horizontal);
   width: 100%;
   text-align: center;
-  outline: 1px solid transparent;
-  outline-offset: 2px !important;
-  color: var(--vscode-button-foreground);
   background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-weight: bold;
+  transition: background var(--transition-duration);
 }
 
 button:hover {
@@ -61,31 +65,47 @@ button:hover {
 }
 
 button:focus {
-  outline-color: var(--vscode-focusBorder);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder);
 }
 
-button.secondary {
-  color: var(--vscode-button-secondaryForeground);
-  background: var(--vscode-button-secondaryBackground);
+.chip {
+  display: inline-block;
+  padding: var(--chip-padding);
+  margin: 4px;
+  border-radius: var(--chip-border-radius);
+  font-size: 0.85rem;
+  background: var(--chip-bg);
+  color: var(--chip-color);
 }
 
-button.secondary:hover {
-  background: var(--vscode-button-secondaryHoverBackground);
+#planContainer,
+#planSpecificationContainer {
+  margin-top: 10px;
 }
 
-input:not([type="checkbox"]),
-textarea {
-  display: block;
-  width: 100%;
-  border: none;
-  font-family: var(--vscode-font-family);
-  padding: var(--input-padding-vertical) var(--input-padding-horizontal);
-  color: var(--vscode-input-foreground);
-  outline-color: var(--vscode-input-border);
-  background-color: var(--vscode-input-background);
+#planContainer h4 {
+  margin-bottom: 8px;
 }
 
-input::placeholder,
-textarea::placeholder {
+#planSpecificationContainer details {
+  border: 1px solid var(--vscode-input-border);
+  border-radius: var(--border-radius);
+  padding: 8px;
+  margin-bottom: 8px;
+  background-color: var(--vscode-editor-background);
+}
+
+#planSpecificationContainer summary {
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--vscode-button-background);
+}
+
+#loader {
+  font-style: italic;
+  text-align: center;
+  margin-top: 10px;
   color: var(--vscode-input-placeholderForeground);
 }

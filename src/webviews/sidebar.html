@@ -49,7 +49,9 @@
         document.getElementById("loader").hidden = false;
       }
 
-      function updatePlanContent(plan) {
+      function updatePlanContent(plan) {updatePlanContent
+
+        const container = document.getElementById("planContainer");
 
         const heading = document.createElement("h4");
         heading.textContent = plan.description;

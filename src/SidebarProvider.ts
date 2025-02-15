@@ -15,7 +15,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri],
+      localResourceRoots: [this._extensionUri, ],
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
@@ -135,53 +135,39 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "media", "vscode.css")
     );
 
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, "out", "compiled/sidebar.js")
+    );
+    const styleMainUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, "out", "compiled/sidebar.css")
+    );
+
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
-      <html lang="en">
-        <head>
-                             <meta charset="UTF-8">
-                    <!--
-                        Use a content security policy to only allow loading images from https or from our extension directory,
-                        and only allow scripts that have a specific nonce.
-                    -->
-                    <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <link href="${styleResetUri}" rel="stylesheet">
-                    <link href="${styleVSCodeUri}" rel="stylesheet">
-          <script nonce="${nonce}">
-            const tsvscode = acquireVsCodeApi();
-            
-            window.addEventListener('message', event => {
-              if (event.data.type === 'showPlan') {
-                document.getElementById('result').innerHTML = event.data.value;
-              }
-            });
-
-            // Add event listener properly
-            window.addEventListener('DOMContentLoaded', (event) => {
-              document.getElementById('generateButton').addEventListener('click', generatePlan);
-            });
-
-            function generatePlan() {
-              const input = document.getElementById('planInput').value;
-              tsvscode.postMessage({
-                type: 'generatePlan',
-                value: input
-              });
-            }
-          </script>
-
-        </head>
-        <body>
-          <div class="container">
-            <h2>Code Planner</h2>
-            <input type="text" id="planInput" placeholder="Describe your coding plan...">
-            <button id="generateButton">Create Plan</button>
-            <div id="result"></div>
-          </div>
-        </body>
-      </html>`;
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<!--
+					Use a content security policy to only allow loading images from https or from our extension directory,
+					and only allow scripts that have a specific nonce.
+        -->
+        <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${
+          webview.cspSource
+        }; script-src 'nonce-${nonce}';">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<link href="${styleResetUri}" rel="stylesheet">
+				<link href="${styleVSCodeUri}" rel="stylesheet">
+        <link href="${styleMainUri}" rel="stylesheet">
+        <script nonce="${nonce}">
+          const tsvscode = acquireVsCodeApi();
+        </script>
+        <script nonce="${nonce}" src="${scriptUri}"></script>
+			</head>
+      <body>
+				
+			</body>
+			</html>`;
   }
 
   public revive(panel: vscode.WebviewView) {
